@@ -1,6 +1,6 @@
-# Air ABC (CNCSPR)
+# PROJECT LEARN IO (PREC)
 
-Air ABC lets kids learn English letters by tracing them in the air in front of a webcam. A live hand-tracking model follows their fingertip, draws the trail on screen, and matches the shape to a letter in real time — no pen, paper, or app install required.
+LEARNIO lets kids learn English letters by tracing them in the air in front of a webcam. A live hand-tracking model follows their fingertip, draws the trail on screen, and matches the shape to a letter in real time — no pen, paper, or app install required.
 
 Everything runs **entirely in the browser**. No video is ever recorded, uploaded, or stored anywhere.
 
