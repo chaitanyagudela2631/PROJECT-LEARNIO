@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEARNIO — Draw letters in the sky!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#8fd3f4;
+    --sky-bottom:#e7f7ff;
+    --sun:#ffc93c;
+    --coral:#ff6f59;
+    --leaf:#3fb27f;
+    --ink:#1f3a5f;
+    --cloud:#ffffff;
+    --card-shadow: 0 12px 0 rgba(31,58,95,0.12);
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    font-family:'Nunito', sans-serif;
+    color:var(--ink);
+    background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bottom) 55%);
+    min-height:100vh;
+  }
+  .clouds{
+    position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+  }
+  .cloud{ position:absolute; background:var(--cloud); border-radius:50%; opacity:0.8; filter: blur(0.5px); }
+  .cloud::before, .cloud::after{ content:""; position:absolute; background:var(--cloud); border-radius:50%; }
+  .c1{ width:120px; height:46px; top:6%; left:4%; }
+  .c1::before{ width:70px; height:70px; top:-38px; left:10px; }
+  .c1::after{ width:50px; height:50px; top:-24px; left:60px; }
+  .c2{ width:90px; height:36px; top:14%; right:6%; }
+  .c2::before{ width:56px; height:56px; top:-30px; left:8px; }
+  .c2::after{ width:40px; height:40px; top:-18px; left:46px; }
+  .c3{ width:70px; height:28px; bottom:8%; left:8%; opacity:0.6;}
+  .c3::before{ width:44px; height:44px; top:-24px; left:6px; }
+
+  main{
+    position:relative; z-index:1;
+    max-width:720px; margin:0 auto; padding:28px 20px 60px;
+  }
+  header{ text-align:center; margin-bottom:18px; }
+  header h1{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800;
+    font-size:clamp(32px, 6vw, 48px);
+    margin:0 0 4px;
+    color:var(--ink);
+  }
+  header p{
+    margin:0; font-weight:700; color:var(--ink); opacity:0.75; font-size:16px;
+  }
+
+  .score-row{
+    display:flex; justify-content:center; gap:8px; margin:14px 0 22px;
+    font-family:'Baloo 2', sans-serif; font-weight:700; color:var(--ink);
+  }
+  .score-pill{
+    background:var(--cloud); border-radius:999px; padding:8px 18px;
+    box-shadow: var(--card-shadow);
+    display:flex; align-items:center; gap:6px; font-size:15px;
+  }
+
+  .prompt-card{
+    background:var(--cloud);
+    border-radius:28px;
+    padding:18px 24px 22px;
+    text-align:center;
+    box-shadow: var(--card-shadow);
+    margin-bottom:18px;
+  }
+  .prompt-label{
+    font-weight:800; font-size:14px; letter-spacing:0.2px; opacity:0.6; margin-bottom:2px;
+  }
+  .target-letter{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:800;
+    font-size:96px;
+    line-height:1;
+    color:var(--coral);
+  }
+
+  .stage{
+    position:relative;
+    border-radius:28px;
+    overflow:hidden;
+    background:#123055;
+    box-shadow: var(--card-shadow);
+    aspect-ratio: 4/3;
+  }
+  .camera-wrap{
+    position:absolute; inset:0;
+    transform: scaleX(-1); /* mirror so it feels like a mirror, not a recording */
+  }
+  video, canvas{
+    position:absolute; inset:0; width:100%; height:100%; object-fit:cover;
+  }
+  video{ background:#123055; }
+
+  .placeholder{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    flex-direction:column; gap:14px; color:#fff; text-align:center; padding:20px;
+  }
+  .placeholder .big{ font-size:52px; }
+  .placeholder p{ font-family:'Nunito'; font-weight:700; max-width:340px; opacity:0.9; margin:0;}
+
+  .hand-badge{
+    position:absolute; top:14px; left:14px; z-index:2;
+    background:rgba(255,255,255,0.92); color:var(--ink);
+    font-weight:800; font-size:13px; padding:8px 12px; border-radius:999px;
+    display:none;
+  }
+
+  .feedback{
+    min-height:46px; text-align:center; font-family:'Baloo 2', sans-serif;
+    font-weight:700; font-size:22px; margin:16px 0 6px; color:var(--ink);
+  }
+  .feedback.correct{ color:var(--leaf); }
+  .feedback.retry{ color:var(--coral); }
+
+  .controls{
+    display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:14px;
+  }
+  button{
+    font-family:'Baloo 2', sans-serif;
+    font-weight:700; font-size:15px; color:var(--ink);
+    border:none; border-radius:999px; padding:12px 20px; cursor:pointer;
+    background:var(--cloud); box-shadow: 0 6px 0 rgba(31,58,95,0.15);
+    transition: transform 0.06s ease;
+  }
+  button:active{ transform: translateY(3px); box-shadow: 0 3px 0 rgba(31,58,95,0.15); }
+  button:disabled{ opacity:0.45; cursor:not-allowed; }
+  #startBtn{ background:var(--coral); color:#fff; }
+  #checkBtn{ background:var(--sun); }
+  #nextBtn{ background:var(--leaf); color:#fff; }
+
+  .hint{
+    text-align:center; margin-top:18px; font-size:14px; font-weight:700;
+    color:var(--ink); opacity:0.65; max-width:420px; margin-left:auto; margin-right:auto;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    * { transition:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="clouds">
+  <div class="cloud c1"></div>
+  <div class="cloud c2"></div>
+  <div class="cloud c3"></div>
+</div>
+
+<main>
+  <header>
+    <h1>LEARN IO</h1>
+    <p>Trace the letter in the air — no pencil needed!</p>
+  </header>
+
+  <div class="score-row">
+    <div class="score-pill">⭐ <span id="starCount">0</span> stars</div>
+    <div class="score-pill">🔤 Letter <span id="letterProgress">1</span> / <span id="letterTotal">10</span></div>
+  </div>
+
+  <div class="prompt-card">
+    <div class="prompt-label">DRAW THIS LETTER</div>
+    <div class="target-letter" id="targetLetter">C</div>
+  </div>
+
+  <div class="stage">
+    <div class="camera-wrap">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+    </div>
+    <div class="hand-badge" id="handBadge">👋 Show one finger to draw</div>
+    <div class="placeholder" id="placeholder">
+      <div class="big">📷✨</div>
+      <p>Turn on your camera, hold up one finger, and trace the letter shown above right in front of the screen.</p>
+    </div>
+  </div>
+
+  <div class="feedback" id="feedback"></div>
+
+  <div class="controls">
+    <button id="startBtn">Start camera</button>
+    <button id="checkBtn" disabled>Check my letter ✓</button>
+    <button id="clearBtn" disabled>Clear</button>
+    <button id="nextBtn" disabled>Skip →</button>
+  </div>
+
+  <p class="hint">Point with one finger and trace big and slow. Lower your hand, pause, or tap "Check my letter" when you're done.</p>
+</main>
+
+<script type="module">
+import { HandLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+
+/* ---------- Letter templates ----------
+   Each letter is a single continuous stroke (no pen lifts), points in a 0-100 box, y grows downward.
+   This is why the starter set below is limited to letters that are naturally drawable in one motion.
+   Add more by giving each new letter its own point list in the same style. */
+const TEMPLATES = {
+  C: [[82,20],[65,10],[45,10],[26,18],[15,32],[11,50],[15,68],[26,82],[45,90],[65,90],[82,80]],
+  O: circlePoints(50,50,40,24),
+  L: [[22,8],[22,90],[85,90]],
+  S: [[76,15],[55,9],[34,15],[21,29],[24,44],[45,50],[66,57],[77,72],[66,86],[45,91],[24,85]],
+  U: [[20,8],[20,58],[26,80],[42,91],[60,91],[76,80],[81,58],[81,8]],
+  V: [[14,8],[50,90],[87,8]],
+  W: [[8,8],[28,90],[50,32],[72,90],[93,8]],
+  Z: [[15,14],[86,14],[15,87],[86,87]],
+  N: [[15,90],[15,9],[86,90],[86,9]],
+  M: [[9,90],[9,9],[50,58],[91,9],[91,90]],
+};
+const LETTERS = Object.keys(TEMPLATES);
+
+function circlePoints(cx,cy,r,n){
+  const pts=[];
+  for(let i=0;i<=n;i++){
+    const a = (i/n) * 2*Math.PI * 0.97; // small gap like a real 'O' stroke start/end
+    pts.push([cx + r*Math.cos(a - Math.PI/2), cy + r*Math.sin(a - Math.PI/2)]);
+  }
+  return pts;
+}
+
+/* ---------- $1 Unistroke Recognizer (Wobbrock, Wilson & Li, 2007) ---------- */
+const NUM_POINTS = 64;
+const SQUARE_SIZE = 100;
+const ANGLE_RANGE = Math.PI/4;
+const ANGLE_PRECISION = 2 * Math.PI/180;
+const PHI = 0.5 * (-1 + Math.sqrt(5));
+const HALF_DIAGONAL = 0.5 * Math.sqrt(SQUARE_SIZE*SQUARE_SIZE*2);
+
+function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+function toPts(arr){ return arr.map(p => Array.isArray(p) ? {x:p[0], y:p[1]} : {x:p.x, y:p.y}); }
+
+function pathLength(pts){
+  let d=0; for(let i=1;i<pts.length;i++) d += dist(pts[i-1], pts[i]); return d;
+}
+function resample(points, n){
+  let I = pathLength(points) / (n-1);
+  if (!isFinite(I) || I<=0) return points.slice(0,n);
+  let D = 0;
+  let src = points.slice();
+  const out = [src[0]];
+  for (let i=1; i<src.length; i++){
+    const d = dist(src[i-1], src[i]);
+    if (D + d >= I){
+      const t = (I - D) / d;
+      const q = { x: src[i-1].x + t*(src[i].x - src[i-1].x), y: src[i-1].y + t*(src[i].y - src[i-1].y) };
+      out.push(q);
+      src.splice(i, 0, q);
+      D = 0;
+    } else D += d;
+  }
+  while (out.length < n) out.push(src[src.length-1]);
+  return out.slice(0, n);
+}
+function centroid(pts){
+  let x=0,y=0; pts.forEach(p=>{x+=p.x; y+=p.y;}); return {x:x/pts.length, y:y/pts.length};
+}
+function rotateBy(pts, angle){
+  const c = centroid(pts);
+  const cos=Math.cos(angle), sin=Math.sin(angle);
+  return pts.map(p => ({
+    x: (p.x-c.x)*cos - (p.y-c.y)*sin + c.x,
+    y: (p.x-c.x)*sin + (p.y-c.y)*cos + c.y
+  }));
+}
+function boundingBox(pts){
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  pts.forEach(p=>{ minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y); });
+  return { minX,minY,maxX,maxY, width:maxX-minX, height:maxY-minY };
+}
+function scaleToSquare(pts, size){
+  const b = boundingBox(pts);
+  return pts.map(p => ({ x: p.x * (size/(b.width||1)), y: p.y * (size/(b.height||1)) }));
+}
+function translateToOrigin(pts){
+  const c = centroid(pts);
+  return pts.map(p => ({ x: p.x - c.x, y: p.y - c.y }));
+}
+function indicativeAngle(pts){
+  const c = centroid(pts);
+  return Math.atan2(c.y - pts[0].y, c.x - pts[0].x);
+}
+function processStroke(raw){
+  let pts = resample(raw, NUM_POINTS);
+  const angle = indicativeAngle(pts);
+  pts = rotateBy(pts, -angle);
+  pts = scaleToSquare(pts, SQUARE_SIZE);
+  pts = translateToOrigin(pts);
+  return pts;
+}
+function pathDistance(a,b){
+  let d=0; for(let i=0;i<a.length;i++) d += dist(a[i], b[i]); return d/a.length;
+}
+function distanceAtAngle(pts, template, angle){
+  return pathDistance(rotateBy(pts, angle), template);
+}
+function distanceAtBestAngle(pts, template, a=-ANGLE_RANGE, b=ANGLE_RANGE, thresh=ANGLE_PRECISION){
+  let x1 = PHI*a + (1-PHI)*b, f1 = distanceAtAngle(pts, template, x1);
+  let x2 = (1-PHI)*a + PHI*b, f2 = distanceAtAngle(pts, template, x2);
+  while (Math.abs(b-a) > thresh){
+    if (f1 < f2){ b=x2; x2=x1; f2=f1; x1=PHI*a+(1-PHI)*b; f1=distanceAtAngle(pts,template,x1); }
+    else { a=x1; x1=x2; f1=f2; x2=(1-PHI)*a+PHI*b; f2=distanceAtAngle(pts,template,x2); }
+  }
+  return Math.min(f1,f2);
+}
+
+const processedTemplates = {};
+for (const letter of LETTERS){
+  processedTemplates[letter] = processStroke(toPts(TEMPLATES[letter]));
+}
+
+function recognize(rawPoints){
+  const candidate = processStroke(rawPoints);
+  let best = null, bestDist = Infinity;
+  for (const letter of LETTERS){
+    const d = distanceAtBestAngle(candidate, processedTemplates[letter]);
+    if (d < bestDist){ bestDist = d; best = letter; }
+  }
+  const score = Math.max(0, 1 - bestDist / HALF_DIAGONAL);
+  return { letter: best, score };
+}
+
+/* ---------- App wiring ---------- */
+const video = document.getElementById('video');
+const canvas = document.getElementById('overlay');
+const ctx = canvas.getContext('2d');
+const placeholder = document.getElementById('placeholder');
+const handBadge = document.getElementById('handBadge');
+const startBtn = document.getElementById('startBtn');
+const checkBtn = document.getElementById('checkBtn');
+const clearBtn = document.getElementById('clearBtn');
+const nextBtn = document.getElementById('nextBtn');
+const feedback = document.getElementById('feedback');
+const targetLetterEl = document.getElementById('targetLetter');
+const starCountEl = document.getElementById('starCount');
+const letterProgressEl = document.getElementById('letterProgress');
+document.getElementById('letterTotal').textContent = LETTERS.length;
+
+let handLandmarker = null;
+let running = false;
+let points = [];
+let lastHandSeenAt = 0;
+let letterIndex = 0;
+let stars = 0;
+let awaitingNext = false;
+
+document.getElementById('letterTotal').textContent = LETTERS.length;
+targetLetterEl.textContent = LETTERS[letterIndex];
+
+function resizeCanvas(){
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+}
+
+async function initModel(){
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+  );
+  handLandmarker = await HandLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      delegate: "GPU"
+    },
+    runningMode: "VIDEO",
+    numHands: 1
+  });
+}
+
+startBtn.addEventListener('click', async () => {
+  startBtn.disabled = true;
+  startBtn.textContent = "Loading...";
+  try {
+    await initModel();
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+    video.srcObject = stream;
+    await video.play();
+    resizeCanvas();
+    placeholder.style.display = 'none';
+    running = true;
+    checkBtn.disabled = false;
+    clearBtn.disabled = false;
+    nextBtn.disabled = false;
+    lastHandSeenAt = performance.now();
+    requestAnimationFrame(loop);
+  } catch (err) {
+    feedback.textContent = "Couldn't reach the camera — check permissions and try again.";
+    feedback.className = "feedback retry";
+    startBtn.disabled = false;
+    startBtn.textContent = "Start camera";
+  }
+});
+
+checkBtn.addEventListener('click', () => { if (points.length > 6) doRecognize(); });
+clearBtn.addEventListener('click', () => { points = []; feedback.textContent = ""; feedback.className = "feedback"; });
+nextBtn.addEventListener('click', () => advanceLetter());
+
+function advanceLetter(){
+  letterIndex = (letterIndex + 1) % LETTERS.length;
+  targetLetterEl.textContent = LETTERS[letterIndex];
+  letterProgressEl.textContent = letterIndex + 1;
+  points = [];
+  feedback.textContent = "";
+  feedback.className = "feedback";
+  awaitingNext = false;
+}
+
+function loop(){
+  if (!running) return;
+  const now = performance.now();
+  const result = handLandmarker.detectForVideo(video, now);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawGuide();
+
+  if (result.landmarks && result.landmarks.length > 0){
+    const lm = result.landmarks[0];
+    lastHandSeenAt = now;
+    handBadge.style.display = 'none';
+
+    const tip = lm[8], pip = lm[6], wrist = lm[0];
+    const extended = dist2(wrist, tip) > dist2(wrist, pip) * 1.15;
+    const x = tip.x * canvas.width, y = tip.y * canvas.height;
+
+    if (extended && !awaitingNext){
+      points.push({ x, y });
+    }
+    drawTrail();
+    drawFingertip(x, y, extended);
+  } else {
+    if (now - lastHandSeenAt > 200) handBadge.style.display = 'block';
+    if (!awaitingNext && now - lastHandSeenAt > 900 && points.length > 6){
+      doRecognize();
+    }
+    drawTrail();
+  }
+  requestAnimationFrame(loop);
+}
+function dist2(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+
+function drawGuide(){
+  const box = 0.62 * Math.min(canvas.width, canvas.height);
+  const ox = (canvas.width - box) / 2;
+  const oy = (canvas.height - box) / 2;
+  const pts = toPts(TEMPLATES[LETTERS[letterIndex]]).map(p => ({
+    x: ox + (p.x/100) * box,
+    y: oy + (p.y/100) * box
+  }));
+  ctx.save();
+  ctx.setLineDash([10, 12]);
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  pts.forEach((p,i) => i === 0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawTrail(){
+  if (points.length < 2) return;
+  ctx.save();
+  ctx.lineWidth = 8;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#ffc93c";
+  ctx.shadowColor = "rgba(255,201,60,0.7)";
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  points.forEach((p,i) => i === 0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawFingertip(x, y, extended){
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, 12, 0, Math.PI*2);
+  ctx.fillStyle = extended ? "#ff6f59" : "rgba(255,255,255,0.5)";
+  ctx.fill();
+  ctx.restore();
+}
+
+function doRecognize(){
+  if (points.length < 6) return;
+  const { letter, score } = recognize(points);
+  const target = LETTERS[letterIndex];
+
+  if (letter === target && score > 0.62){
+    stars += 1;
+    starCountEl.textContent = stars;
+    feedback.textContent = `Great job! That's ${target}! ⭐`;
+    feedback.className = "feedback correct";
+    awaitingNext = true;
+    setTimeout(advanceLetter, 1400);
+  } else {
+    feedback.textContent = "So close — try tracing it bigger and slower!";
+    feedback.className = "feedback retry";
+    points = [];
+  }
+}
+
+window.addEventListener('resize', () => { if (running) resizeCanvas(); });
+</script>
+</body>
+</html>
